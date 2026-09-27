@@ -46,6 +46,27 @@ Item {
     function getTimestampUs(): real {
         return vid.timestamp * 1000;
     }
+
+    function autoSelectGoodShots(): void {
+        const raw = controller.get_auto_select_segments();
+        let segments = [];
+        try {
+            segments = JSON.parse(raw);
+        } catch (e) {
+            return;
+        }
+
+        const ranges = [];
+        for (const segment of segments) {
+            const start = Math.max(0, segment.start_ms / root.orgDurationMs);
+            const end = Math.min(1, segment.end_ms / root.orgDurationMs);
+            if (end > start) {
+                ranges.push([start, end]);
+            }
+        }
+
+        root.setTrimRanges(ranges);
+    }
     function setPosition(pos: real): void {
         const frame = frameAtPosition(pos);
         if (frame != vid.currentFrame) {
@@ -251,6 +272,20 @@ Item {
     }
 
     focus: true;
+
+    QQC.Button {
+        id: autoSelectButton;
+        visible: !root.fullScreen && !window.isMobileLayout && controller.gyro_loaded;
+        text: qsTr("Auto Select");
+        anchors.top: parent.top;
+        anchors.right: parent.right;
+        anchors.topMargin: 3 * dpiScale;
+        anchors.rightMargin: 45 * dpiScale;
+        height: 28 * dpiScale;
+        onClicked: root.autoSelectGoodShots();
+        ToolTip.visible: hovered;
+        ToolTip.text: qsTr("Select smooth sections based on gyro movement");
+    }
 
     Column {
         visible: !root.fullScreen && !window.isMobileLayout;
