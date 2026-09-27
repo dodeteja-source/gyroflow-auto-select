@@ -262,6 +262,12 @@ impl StabilizationManager {
             let mut gyro = self.gyro.write();
             gyro.load_from_telemetry(md);
             gyro.file_load_options = options.clone();
+
+            // Analyze the normalized raw IMU immediately after telemetry is loaded.
+            // This is cached so the UI can request results without re-parsing the file.
+            let metadata = gyro.file_metadata.read();
+            let analysis = shot_analysis::analyze(&metadata, &shot_analysis::AnalysisConfig::default());
+            *self.shot_analysis.write() = Some(analysis);
         }
 
         if let Some(id) = camera_id {
