@@ -283,7 +283,7 @@ Item {
         anchors.rightMargin: 45 * dpiScale;
         height: 28 * dpiScale;
         onClicked: {
-            controller.set_auto_select_config(autoSelectScore.value, autoSelectDuration.value, autoSelectGap.value);
+            controller.set_auto_select_config(autoSelectScore.value, autoSelectDuration.value * 1000, autoSelectGap.value * 1000);
             root.autoSelectGoodShots();
         }
         ToolTip.visible: hovered;
