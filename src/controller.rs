@@ -119,6 +119,7 @@ pub struct Controller {
     get_scaled_duration_ms: qt_method!(fn(&self) -> f64),
     get_scaled_fps: qt_method!(fn(&self) -> f64),
     get_auto_select_segments: qt_method!(fn(&self) -> QString),
+    set_auto_select_config: qt_method!(fn(&self, min_score: f64, min_duration_ms: f64, merge_gap_ms: f64)),
     set_video_created_at: qt_method!(fn(&self, timestamp: u64)),
 
     recompute_threaded: qt_method!(fn(&mut self)),
@@ -386,6 +387,29 @@ impl Controller {
             filesystem::start_accessing_url(&url, false);
             vid.setUrl(QUrl::from(QString::from(url)), QString::from(custom_decoder));
         }
+    }
+
+    fn set_auto_select_config(&self, min_score: f64, min_duration_ms: f64, merge_gap_ms: f64) {
+        let mut analysis = match self.stabilizer.get_shot_analysis() {
+            Some(value) => value,
+            None => return,
+        };
+
+        let mut config = core::shot_analysis::AnalysisConfig::default();
+        config.segments.min_score = min_score.clamp(0.0, 100.0);
+        config.segments.min_duration_ms = min_duration_ms.max(0.0);
+        config.segments.merge_gap_ms = merge_gap_ms.max(0.0);
+
+        let samples = self.stabilizer.gyro.read().raw_imu_samples().iter()
+            .filter_map(|s| s.gyro.map(|gyro| core::shot_analysis::MotionSample {
+                timestamp_ms: s.timestamp_ms,
+                gyro,
+                accel: s.accl,
+            }))
+            .collect::<Vec<_>>();
+
+        analysis = core::shot_analysis::analyze(&samples, &config);
+        *self.stabilizer.shot_analysis.write() = Some(analysis);
     }
 
     fn get_auto_select_segments(&self) -> QString {
