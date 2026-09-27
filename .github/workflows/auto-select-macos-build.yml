@@ -46,7 +46,7 @@ jobs:
           test -f _deployment/_binaries/mac/Gyroflow.app/Contents/MacOS/gyroflow
           file _deployment/_binaries/mac/Gyroflow.app/Contents/MacOS/gyroflow
 
-      - name: Upload macOS app
+      # Trigger a fresh unsigned build whenever this workflow is updated.\n      - name: Upload macOS app
         uses: actions/upload-artifact@v4
         with:
           name: Gyroflow-macos-auto-select-unsigned
