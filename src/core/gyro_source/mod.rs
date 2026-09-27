@@ -87,6 +87,10 @@ impl GyroSource {
         self.file_metadata.read().has_motion()
     }
 
+    pub fn raw_imu_samples(&self) -> &[TimeIMU] {
+        &self.raw_imu
+    }
+
     pub fn set_use_gravity_vectors(&mut self, v: bool) {
         if self.use_gravity_vectors != v {
             self.use_gravity_vectors = v;
