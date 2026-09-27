@@ -32,8 +32,19 @@ pub fn build_segments(scores: &[ShotScore], config: &SegmentConfig) -> Vec<GoodS
     for score in scores.iter().filter(|s| s.total_score >= config.min_score) {
         if let Some(last) = segments.last_mut() {
             if score.start_ms <= last.end_ms + config.merge_gap_ms {
+                let previous_duration = (last.end_ms - last.start_ms).max(0.0);
+                let added_duration = (score.end_ms - score.start_ms).max(0.0);
+                let total_duration = previous_duration + added_duration;
+
                 last.end_ms = last.end_ms.max(score.end_ms);
-                last.score = (last.score + score.total_score) / 2.0;
+                if total_duration > 0.0 {
+                    last.score = (
+                        last.score * previous_duration +
+                        score.total_score * added_duration
+                    ) / total_duration;
+                } else {
+                    last.score = score.total_score;
+                }
                 continue;
             }
         }
@@ -68,5 +79,6 @@ mod tests {
         assert_eq!(out.len(), 1);
         assert_eq!(out[0].start_ms, 0.0);
         assert_eq!(out[0].end_ms, 2000.0);
+        assert_eq!(out[0].score, 85.0);
     }
 }
