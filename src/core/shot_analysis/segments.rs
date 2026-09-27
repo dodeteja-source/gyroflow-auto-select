@@ -27,7 +27,7 @@ pub struct GoodSegment {
 }
 
 pub fn build_segments(scores: &[ShotScore], config: &SegmentConfig) -> Vec<GoodSegment> {
-    let mut segments = Vec::new();
+    let mut segments: Vec<GoodSegment> = Vec::new();
 
     for score in scores.iter().filter(|s| s.total_score >= config.min_score) {
         if let Some(last) = segments.last_mut() {
