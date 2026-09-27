@@ -33,9 +33,7 @@ fn variance(values: &[f64], avg: f64) -> f64 {
     }).sum::<f64>() / (values.len() - 1) as f64
 }
 
-/// Converts raw gyro samples into overlapping analysis windows.
-/// Gyro values are treated as angular velocity in deg/s, matching Gyroflow's
-/// normalized IMU representation.
+/// Converts normalized gyro samples into overlapping analysis windows.
 pub fn analyze_motion(samples: &[MotionSample], window_ms: f64, step_ms: f64) -> Vec<MotionMetrics> {
     if samples.len() < 2 || window_ms <= 0.0 || step_ms <= 0.0 {
         return Vec::new();
@@ -73,9 +71,11 @@ pub fn analyze_motion(samples: &[MotionSample], window_ms: f64, step_ms: f64) ->
             let angular_acceleration = mean(&accels);
             let smoothness = 1.0 / (1.0 + jitter + angular_acceleration * 0.02);
 
+            // Use the analysis-window boundary rather than the last sample timestamp.
+            // This keeps a 1 s window represented as 1 s in the resulting timeline.
             output.push(MotionMetrics {
-                start_ms: window.first().unwrap().timestamp_ms,
-                end_ms: window.last().unwrap().timestamp_ms,
+                start_ms: start,
+                end_ms: end.min(last),
                 rotation: mean_rate,
                 angular_acceleration,
                 jitter,
@@ -103,6 +103,8 @@ mod tests {
 
         let m = analyze_motion(&samples, 500.0, 500.0);
         assert_eq!(m.len(), 2);
+        assert_eq!(m[0].start_ms, 0.0);
+        assert_eq!(m[0].end_ms, 500.0);
         assert!(m[0].jitter < 0.001);
         assert!(m[0].angular_acceleration < 0.001);
         assert!(m[0].smoothness > 0.99);
