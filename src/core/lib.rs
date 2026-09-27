@@ -265,8 +265,14 @@ impl StabilizationManager {
 
             // Analyze the normalized raw IMU immediately after telemetry is loaded.
             // This is cached so the UI can request results without re-parsing the file.
-            let metadata = gyro.file_metadata.read();
-            let analysis = shot_analysis::analyze(&metadata, &shot_analysis::AnalysisConfig::default());
+            let samples = gyro.raw_imu_samples().iter()
+                .filter_map(|s| s.gyro.map(|gyro| shot_analysis::MotionSample {
+                    timestamp_ms: s.timestamp_ms,
+                    gyro,
+                    accel: s.accl,
+                }))
+                .collect::<Vec<_>>();
+            let analysis = shot_analysis::analyze(&samples, &shot_analysis::AnalysisConfig::default());
             *self.shot_analysis.write() = Some(analysis);
         }
 
