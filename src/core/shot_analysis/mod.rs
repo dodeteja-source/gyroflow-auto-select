@@ -8,7 +8,6 @@ pub use motion::{MotionMetrics, MotionSample, analyze_motion};
 pub use scoring::{ScoreConfig, ShotScore, score_window};
 pub use segments::{GoodSegment, SegmentConfig, build_segments};
 
-use crate::gyro_source::FileMetadata;
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct AnalysisConfig {
