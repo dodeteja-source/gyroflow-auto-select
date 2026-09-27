@@ -118,6 +118,7 @@ pub struct Controller {
     get_org_duration_ms: qt_method!(fn(&self) -> f64),
     get_scaled_duration_ms: qt_method!(fn(&self) -> f64),
     get_scaled_fps: qt_method!(fn(&self) -> f64),
+    get_auto_select_segments: qt_method!(fn(&self) -> QString),
     set_video_created_at: qt_method!(fn(&self, timestamp: u64)),
 
     recompute_threaded: qt_method!(fn(&mut self)),
@@ -385,6 +386,22 @@ impl Controller {
             filesystem::start_accessing_url(&url, false);
             vid.setUrl(QUrl::from(QString::from(url)), QString::from(custom_decoder));
         }
+    }
+
+    fn get_auto_select_segments(&self) -> QString {
+        let result = self.stabilizer.get_shot_analysis()
+            .map(|analysis| analysis.good_segments)
+            .unwrap_or_default();
+
+        let json = result.into_iter()
+            .map(|s| serde_json::json!({
+                "start_ms": s.start_ms,
+                "end_ms": s.end_ms,
+                "score": s.score
+            }))
+            .collect::<Vec<_>>();
+
+        QString::from(serde_json::Value::Array(json).to_string())
     }
 
     fn get_input_file_url(&self) -> QString {
