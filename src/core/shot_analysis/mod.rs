@@ -35,16 +35,8 @@ pub struct ShotAnalysis {
     pub good_segments: Vec<GoodSegment>,
 }
 
-pub fn analyze(metadata: &FileMetadata, config: &AnalysisConfig) -> ShotAnalysis {
-    let samples = metadata.raw_imu.iter()
-        .filter_map(|s| s.gyro.map(|gyro| MotionSample {
-            timestamp_ms: s.timestamp_ms,
-            gyro,
-            accel: s.accl,
-        }))
-        .collect::<Vec<_>>();
-
-    let metrics = analyze_motion(&samples, config.window_ms, config.step_ms);
+pub fn analyze(samples: &[MotionSample], config: &AnalysisConfig) -> ShotAnalysis {
+    let metrics = analyze_motion(samples, config.window_ms, config.step_ms);
     let scores = metrics.iter().map(|m| score_window(m, &config.score)).collect::<Vec<_>>();
     let good_segments = build_segments(&scores, &config.segments);
 
