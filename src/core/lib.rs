@@ -276,6 +276,11 @@ impl StabilizationManager {
         Ok(())
     }
 
+    /// Returns the latest automatic shot-selection result for the loaded video.
+    pub fn get_shot_analysis(&self) -> Option<shot_analysis::ShotAnalysis> {
+        self.shot_analysis.read().clone()
+    }
+
     pub fn load_lens_profile(&self, url: &str) -> Result<(), crate::GyroflowCoreError> {
         let url = if (url.starts_with('/') || url.starts_with('\\') || (url.len() > 3 && &url[1..2] == ":")) && !url.contains("://") && !url.starts_with('{') {
             crate::filesystem::path_to_url(url)
