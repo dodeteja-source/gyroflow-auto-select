@@ -962,6 +962,7 @@ Item {
         Item {
             anchors.fill: parent;
             clip: true;
+            z: 20;
             Repeater {
                 model: root.trimRanges;
                 TimelineRangeIndicator {
