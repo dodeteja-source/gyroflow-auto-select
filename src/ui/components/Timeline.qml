@@ -48,6 +48,11 @@ Item {
     }
 
     function autoSelectGoodShots(): void {
+        const timelineDurationMs = root.orgDurationMs > 0 ? root.orgDurationMs : root.durationMs;
+        if (timelineDurationMs <= 0) {
+            return;
+        }
+
         const raw = controller.get_auto_select_segments();
         let segments = [];
         try {
@@ -58,13 +63,14 @@ Item {
 
         const ranges = [];
         for (const segment of segments) {
-            const start = Math.max(0, segment.start_ms / root.orgDurationMs);
-            const end = Math.min(1, segment.end_ms / root.orgDurationMs);
+            const start = Math.max(0, segment.start_ms / timelineDurationMs);
+            const end = Math.min(1, segment.end_ms / timelineDurationMs);
             if (end > start) {
                 ranges.push([start, end]);
             }
         }
 
+        ranges.sort(function(a, b) { return a[0] - b[0]; });
         root.setTrimRanges(ranges);
     }
     function setPosition(pos: real): void {
@@ -273,6 +279,20 @@ Item {
 
     property bool autoSelectApplied: false;
 
+    function tryAutoSelect(): void {
+        if (!controller.gyro_loaded || root.autoSelectApplied) {
+            return;
+        }
+        const timelineDurationMs = root.orgDurationMs > 0 ? root.orgDurationMs : root.durationMs;
+        if (timelineDurationMs <= 0) {
+            return;
+        }
+
+        controller.set_auto_select_config(70, 1500, 750);
+        root.autoSelectGoodShots();
+        root.autoSelectApplied = root.trimRanges.length > 0;
+    }
+
     Connections {
         target: controller;
         function onGyro_changed() {
@@ -280,28 +300,24 @@ Item {
                 root.autoSelectApplied = false;
                 return;
             }
-            if (root.autoSelectApplied) return;
-
-            Qt.callLater(function() {
-                if (!controller.gyro_loaded || root.autoSelectApplied) return;
-                controller.set_auto_select_config(70, 1500, 750);
-                root.autoSelectGoodShots();
-                root.autoSelectApplied = true;
-            });
+            Qt.callLater(root.tryAutoSelect);
         }
     }
+
+    onOrgDurationMsChanged: Qt.callLater(root.tryAutoSelect);
+    onDurationMsChanged: Qt.callLater(root.tryAutoSelect);
 
     focus: true;
 
     QQC.Button {
         id: autoSelectButton;
         visible: !root.fullScreen && !window.isMobileLayout && controller.gyro_loaded;
-        text: qsTr("Auto Select");
+        text: qsTr("✨ Auto Select");
         anchors.top: parent.top;
         anchors.right: parent.right;
         anchors.topMargin: 3 * dpiScale;
-        anchors.rightMargin: 45 * dpiScale;
-        height: 28 * dpiScale;
+        anchors.rightMargin: 52 * dpiScale;
+        height: 32 * dpiScale;
         onClicked: {
             controller.set_auto_select_config(autoSelectScore.value, autoSelectDuration.value * 1000, autoSelectGap.value * 1000);
             root.autoSelectGoodShots();
