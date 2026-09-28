@@ -271,6 +271,26 @@ Item {
         function propChanged() { settings.propChanged(sett); }
     }
 
+    property bool autoSelectApplied: false;
+
+    Connections {
+        target: controller;
+        function onGyro_changed() {
+            if (!controller.gyro_loaded) {
+                root.autoSelectApplied = false;
+                return;
+            }
+            if (root.autoSelectApplied) return;
+
+            Qt.callLater(function() {
+                if (!controller.gyro_loaded || root.autoSelectApplied) return;
+                controller.set_auto_select_config(70, 1500, 750);
+                root.autoSelectGoodShots();
+                root.autoSelectApplied = true;
+            });
+        }
+    }
+
     focus: true;
 
     QQC.Button {
