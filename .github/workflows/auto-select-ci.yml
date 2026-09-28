@@ -66,7 +66,7 @@ jobs:
       - name: Cache Cargo
         uses: Swatinem/rust-cache@v2
         with:
-          key: auto-select-macos-build-1
+          key: auto-select-macos-build-2
       - name: Prepare Vulkan SDK
         uses: johnnynunez/setup-vulkan-sdk@v1
         with:
@@ -88,12 +88,15 @@ jobs:
           test -d _deployment/_binaries/mac/Gyroflow.app
           test -f _deployment/_binaries/mac/Gyroflow.app/Contents/MacOS/gyroflow
           file _deployment/_binaries/mac/Gyroflow.app/Contents/MacOS/gyroflow
-      - name: Package macOS app
+      - name: Prepare artifact bundle
         run: |
-          cd _deployment/_binaries/mac
-          ditto -c -k --sequesterRsrc --keepParent Gyroflow.app Gyroflow-macos-auto-select-unsigned.zip
+          rm -rf artifact
+          mkdir -p artifact
+          ditto _deployment/_binaries/mac/Gyroflow.app artifact/Gyroflow.app
+          test -d artifact/Gyroflow.app
+          test -f artifact/Gyroflow.app/Contents/MacOS/gyroflow
       - name: Upload macOS app
         uses: actions/upload-artifact@v4
         with:
           name: Gyroflow-macos-auto-select-unsigned
-          path: _deployment/_binaries/mac/Gyroflow-macos-auto-select-unsigned.zip
+          path: artifact
