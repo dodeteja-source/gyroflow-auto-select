@@ -300,12 +300,12 @@ Item {
                 width: parent.width;
                 spacing: 8 * dpiScale;
 
-                Label {
+                QQC.Label {
                     text: qsTr("Auto Select settings");
                     font.bold: true;
                 }
 
-                Label {
+                QQC.Label {
                     text: qsTr("Minimum score");
                     width: parent.width;
                 }
@@ -320,7 +320,7 @@ Item {
                     width: parent.width;
                 }
 
-                Label {
+                QQC.Label {
                     text: qsTr("Minimum shot duration");
                     width: parent.width;
                 }
@@ -335,7 +335,7 @@ Item {
                     width: parent.width;
                 }
 
-                Label {
+                QQC.Label {
                     text: qsTr("Merge gap");
                     width: parent.width;
                 }
