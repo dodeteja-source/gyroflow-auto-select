@@ -1075,6 +1075,73 @@ Item {
                 }
 
                 SmallLinkButton {
+                    id: autoSelectButton;
+                    text: qsTr("Auto Select");
+                    visible: controller.gyro_loaded;
+                    checked: true;
+                    opacity: 1.0;
+                    tooltip: qsTr("Select smooth sections based on gyro movement");
+
+                    onClicked: {
+                        controller.set_auto_select_config(autoSelectScore.value, autoSelectDuration.value * 1000, autoSelectGap.value * 1000);
+                        timeline.autoSelectGoodShots();
+                    }
+
+                    QQC.Popup {
+                        id: autoSelectMenu;
+                        x: -width + autoSelectButton.width;
+                        y: -height - 3 * dpiScale;
+                        width: 230 * dpiScale;
+                        padding: 10 * dpiScale;
+
+                        Column {
+                            width: parent.width;
+                            spacing: 8 * dpiScale;
+
+                            QQC.Label { text: qsTr("Auto Select settings"); font.bold: true; }
+                            QQC.Label { text: qsTr("Minimum score"); width: parent.width; }
+                            SliderWithField {
+                                id: autoSelectScore;
+                                defaultValue: 70; value: 70;
+                                from: 0; to: 100;
+                                unit: "%"; precision: 0;
+                                width: parent.width;
+                            }
+                            QQC.Label { text: qsTr("Minimum shot duration"); width: parent.width; }
+                            SliderWithField {
+                                id: autoSelectDuration;
+                                defaultValue: 1.5; value: 1.5;
+                                from: 0.5; to: 10;
+                                unit: "s"; precision: 1;
+                                width: parent.width;
+                            }
+                            QQC.Label { text: qsTr("Merge gap"); width: parent.width; }
+                            SliderWithField {
+                                id: autoSelectGap;
+                                defaultValue: 0.75; value: 0.75;
+                                from: 0; to: 3;
+                                unit: "s"; precision: 2;
+                                width: parent.width;
+                            }
+                            QQC.Button {
+                                text: qsTr("Apply settings");
+                                width: parent.width;
+                                onClicked: {
+                                    controller.set_auto_select_config(autoSelectScore.value, autoSelectDuration.value * 1000, autoSelectGap.value * 1000);
+                                    timeline.autoSelectGoodShots();
+                                    autoSelectMenu.close();
+                                }
+                            }
+                        }
+                    }
+
+                    onPressAndHold: {
+                        if (autoSelectMenu.visible) autoSelectMenu.close();
+                        else autoSelectMenu.open();
+                    }
+                }
+
+                SmallLinkButton {
                     id: muteBtn;
                     iconName: checked? "sound" : "sound-mute";
                     tooltip: checked? qsTr("Mute") : qsTr("Unmute");
