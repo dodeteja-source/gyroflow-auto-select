@@ -390,11 +390,6 @@ impl Controller {
     }
 
     fn set_auto_select_config(&self, min_score: f64, min_duration_ms: f64, merge_gap_ms: f64) {
-        let mut analysis = match self.stabilizer.get_shot_analysis() {
-            Some(value) => value,
-            None => return,
-        };
-
         let mut config = core::shot_analysis::AnalysisConfig::default();
         config.segments.min_score = min_score.clamp(0.0, 100.0);
         config.segments.min_duration_ms = min_duration_ms.max(0.0);
@@ -408,7 +403,12 @@ impl Controller {
             }))
             .collect::<Vec<_>>();
 
-        analysis = core::shot_analysis::analyze(&samples, &config);
+        if samples.len() < 2 {
+            *self.stabilizer.shot_analysis.write() = None;
+            return;
+        }
+
+        let analysis = core::shot_analysis::analyze(&samples, &config);
         *self.stabilizer.shot_analysis.write() = Some(analysis);
     }
 
