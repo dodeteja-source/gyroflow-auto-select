@@ -278,29 +278,76 @@ Item {
     }
 
     property bool autoSelectApplied: false;
+    property int autoSelectRetryCount: 0;
+
+    Timer {
+        id: autoSelectRetryTimer;
+        interval: 250;
+        repeat: false;
+        onTriggered: root.tryAutoSelect();
+    }
+
+    function scheduleAutoSelectRetry(): void {
+        if (autoSelectRetryCount >= 20) {
+            return;
+        }
+        ++autoSelectRetryCount;
+        autoSelectRetryTimer.restart();
+    }
 
     function tryAutoSelect(): void {
         if (!controller.gyro_loaded || root.autoSelectApplied) {
             return;
         }
+
+        // Telemetry is loaded asynchronously. Wait until the raw gyro buffer
+        // is fully populated before running the analysis.
+        if (controller.loading_gyro_in_progress) {
+            scheduleAutoSelectRetry();
+            return;
+        }
+
         const timelineDurationMs = root.orgDurationMs > 0 ? root.orgDurationMs : root.durationMs;
         if (timelineDurationMs <= 0) {
+            scheduleAutoSelectRetry();
             return;
         }
 
         controller.set_auto_select_config(70, 1500, 750);
         root.autoSelectGoodShots();
-        root.autoSelectApplied = root.trimRanges.length > 0;
+
+        if (root.trimRanges.length > 0) {
+            root.autoSelectApplied = true;
+            root.autoSelectRetryCount = 0;
+        } else {
+            // Keep retrying briefly in case telemetry finishes just after the
+            // loading flag changes.
+            scheduleAutoSelectRetry();
+        }
+    }
+
+    function runAutoSelect(): void {
+        root.autoSelectApplied = false;
+        root.autoSelectRetryCount = 0;
+        autoSelectRetryTimer.stop();
+        Qt.callLater(root.tryAutoSelect);
     }
 
     Connections {
         target: controller;
         function onGyro_changed() {
-            if (!controller.gyro_loaded) {
-                root.autoSelectApplied = false;
-                return;
+            root.autoSelectApplied = false;
+            root.autoSelectRetryCount = 0;
+            autoSelectRetryTimer.stop();
+
+            if (controller.gyro_loaded) {
+                Qt.callLater(root.tryAutoSelect);
             }
-            Qt.callLater(root.tryAutoSelect);
+        }
+        function onLoading_gyro_in_progressChanged() {
+            if (!controller.loading_gyro_in_progress && controller.gyro_loaded) {
+                Qt.callLater(root.tryAutoSelect);
+            }
         }
     }
 
