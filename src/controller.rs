@@ -401,7 +401,7 @@ impl Controller {
             .map(|s| s.timestamp_ms)
             .unwrap_or(0.0);
 
-        let samples = raw_samples.iter()
+        let mut samples = raw_samples.iter()
             .filter_map(|s| s.gyro.map(|gyro| core::shot_analysis::MotionSample {
                 // Normalize gyro timestamps to the beginning of the recording.
                 // Some telemetry sources use a non-zero timestamp origin; the
@@ -412,12 +412,32 @@ impl Controller {
             }))
             .collect::<Vec<_>>();
 
+        // The analysis window expects monotonic timestamps.
+        samples.sort_by(|a, b| a.timestamp_ms.partial_cmp(&b.timestamp_ms).unwrap_or(std::cmp::Ordering::Equal));
+
+        ::log::debug!(
+            "Auto Select: raw_samples={}, gyro_samples={}, duration_ms={:.1}, min_score={:.1}, min_duration_ms={:.1}, merge_gap_ms={:.1}",
+            raw_samples.len(),
+            samples.len(),
+            samples.last().map(|s| s.timestamp_ms).unwrap_or(0.0),
+            config.segments.min_score,
+            config.segments.min_duration_ms,
+            config.segments.merge_gap_ms
+        );
+
         if samples.len() < 2 {
             *self.stabilizer.shot_analysis.write() = None;
             return;
         }
 
         let analysis = core::shot_analysis::analyze(&samples, &config);
+
+        ::log::debug!(
+            "Auto Select: windows={}, good_segments={}",
+            analysis.scores.len(),
+            analysis.good_segments.len()
+        );
+
         *self.stabilizer.shot_analysis.write() = Some(analysis);
     }
 
