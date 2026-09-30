@@ -395,9 +395,17 @@ impl Controller {
         config.segments.min_duration_ms = min_duration_ms.max(0.0);
         config.segments.merge_gap_ms = merge_gap_ms.max(0.0);
 
-        let samples = self.stabilizer.gyro.read().raw_imu_samples().iter()
+        let raw_samples = self.stabilizer.gyro.read().raw_imu_samples();
+        let first_timestamp_ms = raw_samples.first()
+            .map(|s| s.timestamp_ms)
+            .unwrap_or(0.0);
+
+        let samples = raw_samples.iter()
             .filter_map(|s| s.gyro.map(|gyro| core::shot_analysis::MotionSample {
-                timestamp_ms: s.timestamp_ms,
+                // Normalize gyro timestamps to the beginning of the recording.
+                // Some telemetry sources use a non-zero timestamp origin; the
+                // timeline trim ranges are always relative to video start.
+                timestamp_ms: (s.timestamp_ms - first_timestamp_ms).max(0.0),
                 gyro,
                 accel: s.accl,
             }))
