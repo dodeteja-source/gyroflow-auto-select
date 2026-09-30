@@ -1085,7 +1085,7 @@ Item {
 
                     onClicked: {
                         controller.set_auto_select_config(autoSelectScore.value, autoSelectDuration.value * 1000, autoSelectGap.value * 1000);
-                        timeline.runAutoSelect();
+                        timeline.runAutoSelect(autoSelectScore.value, autoSelectDuration.value * 1000, autoSelectGap.value * 1000);
                     }
 
                     QQC.Popup {
@@ -1129,7 +1129,7 @@ Item {
                                 width: parent.width;
                                 onClicked: {
                                     controller.set_auto_select_config(autoSelectScore.value, autoSelectDuration.value * 1000, autoSelectGap.value * 1000);
-                                    timeline.runAutoSelect();
+                                    timeline.runAutoSelect(autoSelectScore.value, autoSelectDuration.value * 1000, autoSelectGap.value * 1000);
                                     autoSelectMenu.close();
                                 }
                             }
