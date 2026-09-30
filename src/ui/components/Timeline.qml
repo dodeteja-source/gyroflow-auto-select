@@ -279,6 +279,9 @@ Item {
 
     property bool autoSelectApplied: false;
     property int autoSelectRetryCount: 0;
+    property real autoSelectMinScore: 70;
+    property real autoSelectMinDurationMs: 1500;
+    property real autoSelectMergeGapMs: 750;
 
     Timer {
         id: autoSelectRetryTimer;
@@ -313,7 +316,7 @@ Item {
             return;
         }
 
-        controller.set_auto_select_config(70, 1500, 750);
+        controller.set_auto_select_config(root.autoSelectMinScore, root.autoSelectMinDurationMs, root.autoSelectMergeGapMs);
         root.autoSelectGoodShots();
 
         if (root.trimRanges.length > 0) {
@@ -326,7 +329,10 @@ Item {
         }
     }
 
-    function runAutoSelect(): void {
+    function runAutoSelect(minScore: real, minDurationMs: real, mergeGapMs: real): void {
+        root.autoSelectMinScore = Math.max(0, Math.min(100, minScore));
+        root.autoSelectMinDurationMs = Math.max(0, minDurationMs);
+        root.autoSelectMergeGapMs = Math.max(0, mergeGapMs);
         root.autoSelectApplied = false;
         root.autoSelectRetryCount = 0;
         autoSelectRetryTimer.stop();
