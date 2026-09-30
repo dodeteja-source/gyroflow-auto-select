@@ -430,7 +430,31 @@ impl Controller {
             return;
         }
 
-        let analysis = core::shot_analysis::analyze(&samples, &config);
+        let mut analysis = core::shot_analysis::analyze(&samples, &config);
+
+        // Best-effort fallback: when no window reaches the configured score,
+        // still select the smoothest available window instead of leaving the
+        // timeline completely untrimmed. This makes Auto Select useful on
+        // difficult/high-motion footage while preserving the configured
+        // threshold whenever it can be satisfied.
+        if analysis.good_segments.is_empty() && !analysis.scores.is_empty() {
+            if let Some(best) = analysis.scores.iter()
+                .max_by(|a, b| a.total_score.partial_cmp(&b.total_score).unwrap_or(std::cmp::Ordering::Equal))
+            {
+                ::log::debug!(
+                    "Auto Select: no segment passed threshold {:.1}; falling back to best window score {:.1} ({:.1}-{:.1} ms)",
+                    config.segments.min_score,
+                    best.total_score,
+                    best.start_ms,
+                    best.end_ms
+                );
+                analysis.good_segments.push(core::shot_analysis::GoodSegment {
+                    start_ms: best.start_ms,
+                    end_ms: best.end_ms,
+                    score: best.total_score,
+                });
+            }
+        }
 
         ::log::debug!(
             "Auto Select: windows={}, good_segments={}",
