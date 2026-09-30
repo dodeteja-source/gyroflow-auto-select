@@ -2,6 +2,7 @@
 // Copyright © 2021-2022 Adrian <adrian.eddy at gmail>
 
 import QtQuick
+import QtQuick.Controls as QQC
 import MDKVideo
 
 import "components/"
