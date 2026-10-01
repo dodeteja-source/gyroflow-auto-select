@@ -291,7 +291,7 @@ Item {
     }
 
     function scheduleAutoSelectRetry(): void {
-        if (autoSelectRetryCount >= 20) {
+        if (autoSelectRetryCount >= 60) {
             return;
         }
         ++autoSelectRetryCount;
@@ -355,6 +355,11 @@ Item {
                 Qt.callLater(root.tryAutoSelect);
             }
         }
+    }
+
+    Component.onCompleted: {
+        autoSelectRetryCount = 0;
+        Qt.callLater(root.tryAutoSelect);
     }
 
     onOrgDurationMsChanged: Qt.callLater(root.tryAutoSelect);
