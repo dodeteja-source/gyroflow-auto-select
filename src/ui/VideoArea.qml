@@ -1075,12 +1075,18 @@ Item {
                     tooltip: qsTr("Toggle stabilization");
                 }
 
-                SmallLinkButton {
+                QQC.Button {
                     id: autoSelectButton;
-                    text: qsTr("Auto Select");
+                    text: qsTr("✨ Auto Select");
                     visible: controller.gyro_loaded;
-                    checked: true;
-                    opacity: 1.0;
+                    enabled: controller.gyro_loaded;
+                    height: 32 * dpiScale;
+                    implicitWidth: 112 * dpiScale;
+                    anchors.verticalCenter: parent.verticalCenter;
+                    z: 1000;
+                    font.pixelSize: 12 * dpiScale;
+                    leftPadding: 10 * dpiScale;
+                    rightPadding: 10 * dpiScale;
                     tooltip: qsTr("Select smooth sections based on gyro movement");
 
                     onClicked: {
