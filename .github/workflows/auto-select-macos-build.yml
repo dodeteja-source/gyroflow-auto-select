@@ -1,0 +1,53 @@
+name: Auto Select macOS Build
+
+on:
+  push:
+    branches:
+      - feature/auto-select-v0.1
+  workflow_dispatch:
+
+jobs:
+  build-macos:
+    name: Gyroflow macOS unsigned build
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: auto-select-macos-0
+
+      - name: Prepare Vulkan SDK
+        uses: johnnynunez/setup-vulkan-sdk@v1
+        with:
+          vulkan-query-version: 1.4.304.1
+          vulkan-components: Vulkan-Headers
+          vulkan-use-cache: true
+
+      - name: Force qml-video-rs rebuild
+        run: |
+          rm -rf target/*/deploy/build/qml-video-rs*
+          rm -rf target/deploy/build/qml-video-rs*
+
+      - name: Install just
+        uses: extractions/setup-just@v2
+
+      - name: Build unsigned macOS app
+        run: |
+          just install-deps
+          just deploy universal
+
+      - name: Verify Auto Select build
+        run: |
+          test -f _deployment/_binaries/mac/Gyroflow.app/Contents/MacOS/gyroflow
+          file _deployment/_binaries/mac/Gyroflow.app/Contents/MacOS/gyroflow
+
+      - name: Upload macOS app
+        uses: actions/upload-artifact@v4
+        with:
+          name: Gyroflow-macos-auto-select-unsigned
+          path: _deployment/_binaries/mac/Gyroflow.app

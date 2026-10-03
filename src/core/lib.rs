@@ -25,6 +25,7 @@ pub mod gpu;
 
 pub mod util;
 pub mod stabilization_params;
+pub mod shot_analysis;
 
 use std::sync::{ Arc, atomic::{ AtomicU64, AtomicBool, Ordering::SeqCst } };
 use std::collections::BTreeMap;
@@ -109,6 +110,9 @@ pub struct StabilizationManager {
     pub params: Arc<RwLock<StabilizationParams>>,
 
     pub sync_data: Arc<RwLock<SyncData>>,
+
+    /// Cached v0.1 automatic shot-selection result for the loaded telemetry.
+    pub shot_analysis: Arc<RwLock<Option<shot_analysis::ShotAnalysis>>>,
 }
 
 impl Default for StabilizationManager {
@@ -147,6 +151,8 @@ impl Default for StabilizationManager {
             camera_id: Arc::new(RwLock::new(None)),
 
             sync_data: Arc::new(RwLock::new(SyncData::default())),
+
+            shot_analysis: Arc::new(RwLock::new(None)),
         }
     }
 }
@@ -256,12 +262,29 @@ impl StabilizationManager {
             let mut gyro = self.gyro.write();
             gyro.load_from_telemetry(md);
             gyro.file_load_options = options.clone();
+
+            // Analyze the normalized raw IMU immediately after telemetry is loaded.
+            // This is cached so the UI can request results without re-parsing the file.
+            let samples = gyro.raw_imu_samples().iter()
+                .filter_map(|s| s.gyro.map(|gyro| shot_analysis::MotionSample {
+                    timestamp_ms: s.timestamp_ms,
+                    gyro,
+                    accel: s.accl,
+                }))
+                .collect::<Vec<_>>();
+            let analysis = shot_analysis::analyze(&samples, &shot_analysis::AnalysisConfig::default());
+            *self.shot_analysis.write() = Some(analysis);
         }
 
         if let Some(id) = camera_id {
             *self.camera_id.write() = Some(id);
         }
         Ok(())
+    }
+
+    /// Returns the latest automatic shot-selection result for the loaded video.
+    pub fn get_shot_analysis(&self) -> Option<shot_analysis::ShotAnalysis> {
+        self.shot_analysis.read().clone()
     }
 
     pub fn load_lens_profile(&self, url: &str) -> Result<(), crate::GyroflowCoreError> {

@@ -1,0 +1,102 @@
+name: Auto Select CI
+
+on:
+  push:
+    branches:
+      - feature/auto-select-v0.1
+  pull_request:
+
+jobs:
+  core-check:
+    name: Core check and shot analysis tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+      - name: Check core
+        run: cargo check --manifest-path src/core/Cargo.toml --no-default-features
+      - name: Test shot analysis
+        run: cargo test --manifest-path src/core/Cargo.toml --no-default-features shot_analysis
+
+  macos-core:
+    name: macOS core check and shot analysis tests
+    runs-on: macos-14
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-macos-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-macos-
+      - name: Check core on macOS
+        run: cargo check --manifest-path src/core/Cargo.toml --no-default-features
+      - name: Test shot analysis on macOS
+        run: cargo test --manifest-path src/core/Cargo.toml --no-default-features shot_analysis
+
+  macos-build:
+    name: Build unsigned macOS app
+    runs-on: macos-14
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: auto-select-macos-build-2
+      - name: Prepare Vulkan SDK
+        uses: johnnynunez/setup-vulkan-sdk@v1
+        with:
+          vulkan-query-version: 1.4.304.1
+          vulkan-components: Vulkan-Headers
+          vulkan-use-cache: true
+      - name: Force qml-video-rs rebuild
+        run: |
+          rm -rf target/*/deploy/build/qml-video-rs*
+          rm -rf target/deploy/build/qml-video-rs*
+      - name: Install just
+        uses: extractions/setup-just@v2
+      - name: Build unsigned macOS app
+        run: |
+          just install-deps
+          just deploy universal
+      - name: Verify Auto Select build
+        run: |
+          test -d _deployment/_binaries/mac/Gyroflow.app
+          test -f _deployment/_binaries/mac/Gyroflow.app/Contents/MacOS/gyroflow
+          file _deployment/_binaries/mac/Gyroflow.app/Contents/MacOS/gyroflow
+      - name: Prepare artifact bundle
+        run: |
+          rm -rf artifact
+          mkdir -p artifact
+          ditto _deployment/_binaries/mac/Gyroflow.app artifact/Gyroflow.app
+          test -d artifact/Gyroflow.app
+          test -f artifact/Gyroflow.app/Contents/MacOS/gyroflow
+      - name: Upload macOS app
+        uses: actions/upload-artifact@v4
+        with:
+          name: Gyroflow-macos-auto-select-unsigned
+          path: artifact

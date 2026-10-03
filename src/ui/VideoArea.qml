@@ -2,6 +2,7 @@
 // Copyright © 2021-2022 Adrian <adrian.eddy at gmail>
 
 import QtQuick
+import QtQuick.Controls as QQC
 import MDKVideo
 
 import "components/"
@@ -1072,6 +1073,78 @@ Item {
                     iconName: "gyroflow";
                     onCheckedChanged: { controller.stab_enabled = checked; vid.forceRedraw(); vid.fovChanged(); }
                     tooltip: qsTr("Toggle stabilization");
+                }
+
+                QQC.Button {
+                    id: autoSelectButton;
+                    text: qsTr("✨ Auto Select");
+                    visible: controller.gyro_loaded;
+                    enabled: controller.gyro_loaded;
+                    height: 32 * dpiScale;
+                    implicitWidth: 112 * dpiScale;
+                    anchors.verticalCenter: parent.verticalCenter;
+                    z: 1000;
+                    font.pixelSize: 12 * dpiScale;
+                    leftPadding: 10 * dpiScale;
+                    rightPadding: 10 * dpiScale;
+
+                    onClicked: {
+                        controller.set_auto_select_config(autoSelectScore.value, autoSelectDuration.value * 1000, autoSelectGap.value * 1000);
+                        timeline.runAutoSelect(autoSelectScore.value, autoSelectDuration.value * 1000, autoSelectGap.value * 1000);
+                    }
+
+                    QQC.Popup {
+                        id: autoSelectMenu;
+                        x: -width + autoSelectButton.width;
+                        y: -height - 3 * dpiScale;
+                        width: 230 * dpiScale;
+                        padding: 10 * dpiScale;
+
+                        Column {
+                            width: parent.width;
+                            spacing: 8 * dpiScale;
+
+                            QQC.Label { text: qsTr("Auto Select settings"); font.bold: true; }
+                            QQC.Label { text: qsTr("Minimum score"); width: parent.width; }
+                            SliderWithField {
+                                id: autoSelectScore;
+                                defaultValue: 70; value: 70;
+                                from: 0; to: 100;
+                                unit: "%"; precision: 0;
+                                width: parent.width;
+                            }
+                            QQC.Label { text: qsTr("Minimum shot duration"); width: parent.width; }
+                            SliderWithField {
+                                id: autoSelectDuration;
+                                defaultValue: 1.5; value: 1.5;
+                                from: 0.5; to: 10;
+                                unit: "s"; precision: 1;
+                                width: parent.width;
+                            }
+                            QQC.Label { text: qsTr("Merge gap"); width: parent.width; }
+                            SliderWithField {
+                                id: autoSelectGap;
+                                defaultValue: 0.75; value: 0.75;
+                                from: 0; to: 3;
+                                unit: "s"; precision: 2;
+                                width: parent.width;
+                            }
+                            QQC.Button {
+                                text: qsTr("Apply settings");
+                                width: parent.width;
+                                onClicked: {
+                                    controller.set_auto_select_config(autoSelectScore.value, autoSelectDuration.value * 1000, autoSelectGap.value * 1000);
+                                    timeline.runAutoSelect(autoSelectScore.value, autoSelectDuration.value * 1000, autoSelectGap.value * 1000);
+                                    autoSelectMenu.close();
+                                }
+                            }
+                        }
+                    }
+
+                    onPressAndHold: {
+                        if (autoSelectMenu.visible) autoSelectMenu.close();
+                        else autoSelectMenu.open();
+                    }
                 }
 
                 SmallLinkButton {

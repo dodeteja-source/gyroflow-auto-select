@@ -46,6 +46,33 @@ Item {
     function getTimestampUs(): real {
         return vid.timestamp * 1000;
     }
+
+    function autoSelectGoodShots(): void {
+        const timelineDurationMs = root.orgDurationMs > 0 ? root.orgDurationMs : root.durationMs;
+        if (timelineDurationMs <= 0) {
+            return;
+        }
+
+        const raw = controller.get_auto_select_segments();
+        let segments = [];
+        try {
+            segments = JSON.parse(raw);
+        } catch (e) {
+            return;
+        }
+
+        const ranges = [];
+        for (const segment of segments) {
+            const start = Math.max(0, segment.start_ms / timelineDurationMs);
+            const end = Math.min(1, segment.end_ms / timelineDurationMs);
+            if (end > start) {
+                ranges.push([start, end]);
+            }
+        }
+
+        ranges.sort(function(a, b) { return a[0] - b[0]; });
+        root.setTrimRanges(ranges);
+    }
     function setPosition(pos: real): void {
         const frame = frameAtPosition(pos);
         if (frame != vid.currentFrame) {
@@ -250,7 +277,97 @@ Item {
         function propChanged() { settings.propChanged(sett); }
     }
 
+    property bool autoSelectApplied: false;
+    property int autoSelectRetryCount: 0;
+    property real autoSelectMinScore: 70;
+    property real autoSelectMinDurationMs: 1500;
+    property real autoSelectMergeGapMs: 750;
+
+    Timer {
+        id: autoSelectRetryTimer;
+        interval: 250;
+        repeat: false;
+        onTriggered: root.tryAutoSelect();
+    }
+
+    function scheduleAutoSelectRetry(): void {
+        if (autoSelectRetryCount >= 60) {
+            return;
+        }
+        ++autoSelectRetryCount;
+        autoSelectRetryTimer.restart();
+    }
+
+    function tryAutoSelect(): void {
+        if (!controller.gyro_loaded || root.autoSelectApplied) {
+            return;
+        }
+
+        // Telemetry is loaded asynchronously. Wait until the raw gyro buffer
+        // is fully populated before running the analysis.
+        if (controller.loading_gyro_in_progress) {
+            scheduleAutoSelectRetry();
+            return;
+        }
+
+        const timelineDurationMs = root.orgDurationMs > 0 ? root.orgDurationMs : root.durationMs;
+        if (timelineDurationMs <= 0) {
+            scheduleAutoSelectRetry();
+            return;
+        }
+
+        controller.set_auto_select_config(root.autoSelectMinScore, root.autoSelectMinDurationMs, root.autoSelectMergeGapMs);
+        root.autoSelectGoodShots();
+
+        if (root.trimRanges.length > 0) {
+            root.autoSelectApplied = true;
+            root.autoSelectRetryCount = 0;
+        } else {
+            // Keep retrying briefly in case telemetry finishes just after the
+            // loading flag changes.
+            scheduleAutoSelectRetry();
+        }
+    }
+
+    function runAutoSelect(minScore: real, minDurationMs: real, mergeGapMs: real): void {
+        root.autoSelectMinScore = Math.max(0, Math.min(100, minScore));
+        root.autoSelectMinDurationMs = Math.max(0, minDurationMs);
+        root.autoSelectMergeGapMs = Math.max(0, mergeGapMs);
+        root.autoSelectApplied = false;
+        root.autoSelectRetryCount = 0;
+        autoSelectRetryTimer.stop();
+        Qt.callLater(root.tryAutoSelect);
+    }
+
+    Connections {
+        target: controller;
+        function onGyro_changed() {
+            root.autoSelectApplied = false;
+            root.autoSelectRetryCount = 0;
+            autoSelectRetryTimer.stop();
+
+            if (controller.gyro_loaded) {
+                Qt.callLater(root.tryAutoSelect);
+            }
+        }
+        function onLoading_gyro_in_progressChanged() {
+            if (!controller.loading_gyro_in_progress && controller.gyro_loaded) {
+                Qt.callLater(root.tryAutoSelect);
+            }
+        }
+    }
+
+    Component.onCompleted: {
+        autoSelectRetryCount = 0;
+        Qt.callLater(root.tryAutoSelect);
+    }
+
+    onOrgDurationMsChanged: Qt.callLater(root.tryAutoSelect);
+    onDurationMsChanged: Qt.callLater(root.tryAutoSelect);
+
     focus: true;
+
+
 
     Column {
         visible: !root.fullScreen && !window.isMobileLayout;
@@ -810,6 +927,7 @@ Item {
         Item {
             anchors.fill: parent;
             clip: true;
+            z: 20;
             Repeater {
                 model: root.trimRanges;
                 TimelineRangeIndicator {

@@ -118,6 +118,8 @@ pub struct Controller {
     get_org_duration_ms: qt_method!(fn(&self) -> f64),
     get_scaled_duration_ms: qt_method!(fn(&self) -> f64),
     get_scaled_fps: qt_method!(fn(&self) -> f64),
+    get_auto_select_segments: qt_method!(fn(&self) -> QString),
+    set_auto_select_config: qt_method!(fn(&self, min_score: f64, min_duration_ms: f64, merge_gap_ms: f64)),
     set_video_created_at: qt_method!(fn(&self, timestamp: u64)),
 
     recompute_threaded: qt_method!(fn(&mut self)),
@@ -385,6 +387,98 @@ impl Controller {
             filesystem::start_accessing_url(&url, false);
             vid.setUrl(QUrl::from(QString::from(url)), QString::from(custom_decoder));
         }
+    }
+
+    fn set_auto_select_config(&self, min_score: f64, min_duration_ms: f64, merge_gap_ms: f64) {
+        let mut config = core::shot_analysis::AnalysisConfig::default();
+        config.segments.min_score = min_score.clamp(0.0, 100.0);
+        config.segments.min_duration_ms = min_duration_ms.max(0.0);
+        config.segments.merge_gap_ms = merge_gap_ms.max(0.0);
+
+        let gyro = self.stabilizer.gyro.read();
+        let raw_samples = gyro.raw_imu_samples();
+        let first_timestamp_ms = raw_samples.first()
+            .map(|s| s.timestamp_ms)
+            .unwrap_or(0.0);
+
+        let mut samples = raw_samples.iter()
+            .filter_map(|s| s.gyro.map(|gyro| core::shot_analysis::MotionSample {
+                // Normalize gyro timestamps to the beginning of the recording.
+                // Some telemetry sources use a non-zero timestamp origin; the
+                // timeline trim ranges are always relative to video start.
+                timestamp_ms: (s.timestamp_ms - first_timestamp_ms).max(0.0),
+                gyro,
+                accel: s.accl,
+            }))
+            .collect::<Vec<_>>();
+
+        // The analysis window expects monotonic timestamps.
+        samples.sort_by(|a, b| a.timestamp_ms.partial_cmp(&b.timestamp_ms).unwrap_or(std::cmp::Ordering::Equal));
+
+        ::log::debug!(
+            "Auto Select: raw_samples={}, gyro_samples={}, duration_ms={:.1}, min_score={:.1}, min_duration_ms={:.1}, merge_gap_ms={:.1}",
+            raw_samples.len(),
+            samples.len(),
+            samples.last().map(|s| s.timestamp_ms).unwrap_or(0.0),
+            config.segments.min_score,
+            config.segments.min_duration_ms,
+            config.segments.merge_gap_ms
+        );
+
+        if samples.len() < 2 {
+            *self.stabilizer.shot_analysis.write() = None;
+            return;
+        }
+
+        let mut analysis = core::shot_analysis::analyze(&samples, &config);
+
+        // Best-effort fallback: when no window reaches the configured score,
+        // still select the smoothest available window instead of leaving the
+        // timeline completely untrimmed. This makes Auto Select useful on
+        // difficult/high-motion footage while preserving the configured
+        // threshold whenever it can be satisfied.
+        if analysis.good_segments.is_empty() && !analysis.scores.is_empty() {
+            if let Some(best) = analysis.scores.iter()
+                .max_by(|a, b| a.total_score.partial_cmp(&b.total_score).unwrap_or(std::cmp::Ordering::Equal))
+            {
+                ::log::debug!(
+                    "Auto Select: no segment passed threshold {:.1}; falling back to best window score {:.1} ({:.1}-{:.1} ms)",
+                    config.segments.min_score,
+                    best.total_score,
+                    best.start_ms,
+                    best.end_ms
+                );
+                analysis.good_segments.push(core::shot_analysis::GoodSegment {
+                    start_ms: best.start_ms,
+                    end_ms: best.end_ms,
+                    score: best.total_score,
+                });
+            }
+        }
+
+        ::log::debug!(
+            "Auto Select: windows={}, good_segments={}",
+            analysis.scores.len(),
+            analysis.good_segments.len()
+        );
+
+        *self.stabilizer.shot_analysis.write() = Some(analysis);
+    }
+
+    fn get_auto_select_segments(&self) -> QString {
+        let result = self.stabilizer.get_shot_analysis()
+            .map(|analysis| analysis.good_segments)
+            .unwrap_or_default();
+
+        let json = result.into_iter()
+            .map(|s| serde_json::json!({
+                "start_ms": s.start_ms,
+                "end_ms": s.end_ms,
+                "score": s.score
+            }))
+            .collect::<Vec<_>>();
+
+        QString::from(serde_json::Value::Array(json).to_string())
     }
 
     fn get_input_file_url(&self) -> QString {
