@@ -1087,7 +1087,6 @@ Item {
                     font.pixelSize: 12 * dpiScale;
                     leftPadding: 10 * dpiScale;
                     rightPadding: 10 * dpiScale;
-                    tooltip: qsTr("Select smooth sections based on gyro movement");
 
                     onClicked: {
                         controller.set_auto_select_config(autoSelectScore.value, autoSelectDuration.value * 1000, autoSelectGap.value * 1000);
